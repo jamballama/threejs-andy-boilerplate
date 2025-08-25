@@ -6,6 +6,7 @@ import { TWEEN } from 'three/examples/jsm/libs/tween.module.min.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import {MeshSurfaceSampler} from 'three/examples/jsm/math/MeshSurfaceSampler.js'
 
 /////////////////////////////////////////////////////////////////////////
 //// DRACO LOADER TO LOAD DRACO COMPRESSED MODELS FROM BLENDER
@@ -23,7 +24,7 @@ document.body.appendChild(container)
 /////////////////////////////////////////////////////////////////////////
 ///// SCENE CREATION
 const scene = new THREE.Scene()
-scene.background = new THREE.Color('#c8f0f9')
+scene.background = new THREE.Color('#000')
 
 /////////////////////////////////////////////////////////////////////////
 ///// RENDERER CONFIG
@@ -41,7 +42,7 @@ scene.add(camera)
 
 /////////////////////////////////////////////////////////////////////////
 ///// MAKE EXPERIENCE FULL SCREEN
-window.addEventListener('resize', () => {
+window.addEventListener('resize', () => { 
     const width = window.innerWidth
     const height = window.innerHeight
     camera.aspect = width / height
@@ -66,25 +67,74 @@ scene.add(sunLight)
 
 /////////////////////////////////////////////////////////////////////////
 ///// LOADING GLB/GLTF MODEL FROM BLENDER
-loader.load('models/gltf/starter-scene.glb', function (gltf) {
+loader.load('models/gltf/heart.glb', function (gltf) {
 
-    scene.add(gltf.scene)
+    gltf.scene.traverse((obj) => {
+        if (obj.isMesh) {
+            sampler = new MeshSurfaceSampler(obj).build();
+        }
+    });
+
+    transformMesh();
+
+    //scene.add(gltf.scene)
 })
+
+//////// /////
+///// TRANSFORM MESH INTO POINTS
+let sampler
+const vertices = []
+const tempPosition = new THREE.Vector3()
+
+let pointsGeometry = new THREE.BufferGeometry();
+
+function transformMesh(){
+
+    // Loop to sample a coordinate for each points
+    for (let i = 0; i < 9000; i++) {
+        // Sample a random position in the model
+        sampler.sample (tempPosition);
+        // Push the coordinates of the sampled coordinates into the array
+        vertices.push(tempPosition.x, tempPosition.y, tempPosition.z);
+    }
+
+    // Define all points positions from the previously created array
+    pointsGeometry.setAttribute('position', new THREE. Float32BufferAttribute(vertices, 3));
+
+    // Define the matrial of the points
+    const pointsMaterial = new THREE. PointsMaterial({
+        color: 0x5c0b17,
+        size: 0.02,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        opacity: 0.8,
+        depthwrite: false,
+        sizeAttenuation: true
+    });
+
+    // Create an instance of points based on the geometry & material
+    const points = new THREE. Points (pointsGeometry, pointsMaterial);
+
+    // Add them into the main group
+    scene.add(points);
+}
+
+
 
 /////////////////////////////////////////////////////////////////////////
 //// INTRO CAMERA ANIMATION USING TWEEN
 function introAnimation() {
     controls.enabled = false //disable orbit controls to animate the camera
     
-    new TWEEN.Tween(camera.position.set(26,4,-35 )).to({ // from camera position
-        x: 16, //desired x position to go
-        y: 50, //desired y position to go
-        z: -0.1 //desired z position to go
+    new TWEEN.Tween(camera.position.set(0,1,0 )).to({ // from camera position
+        x: 0, //desired x position to go
+        y: 10, //desired y position to go
+        z: 10 //desired z position to go
     }, 6500) // time take to animate
     .delay(1000).easing(TWEEN.Easing.Quartic.InOut).start() // define delay, easing
     .onComplete(function () { //on finish animation
         controls.enabled = true //enable orbit controls
-        setOrbitControlsLimits() //enable controls limits
+        //setOrbitControlsLimits() //enable controls limits
         TWEEN.remove(this) // remove the animation from memory
     })
 }
